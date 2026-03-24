@@ -42,6 +42,9 @@ sentence-transformers>=3.1.0
 # LLM orchestration
 openai>=1.40.0            # OpenAI SDK — also used against local vLLM endpoints
 langgraph>=0.2.0          # directed graph runtime for the hostify episode pipeline
+crewai>=0.80.0
+# Multi-agent orchestration for news retrieval pipeline.
+# If unavailable, tasks.py falls back to NewsAgent (ingestion.py).
 
 # Audio
 gTTS==2.5.3

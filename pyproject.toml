@@ -1,43 +1,34 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=68"]
 build-backend = "setuptools.backends.legacy:build"
 
 [project]
 name = "newscast-ai"
 version = "0.1.0"
-description = """\
-    An end-to-end personalised daily news podcast generator that ingests RSS \
-    feeds, scores and summarises articles using open-source LLMs, synthesises \
-    broadcast-quality audio via TTS, and delivers episodes over an RSS feed.\
-    """
-readme = "README.md"
+description = "Personalized daily audio news briefing via multi-agent retrieval and LangGraph script generation."
 requires-python = ">=3.10"
-license = { text = "MIT" }
+readme = "README.md"
 
 [tool.black]
 line-length = 88
 target-version = ["py310", "py311", "py312"]
-include = '\.pyi?$'
 
 [tool.isort]
 profile = "black"
-line_length = 88
 known_first_party = ["services"]
 known_third_party = [
-    "aiohttp", "apscheduler", "celery", "fastapi", "feedparser",
-    "gtts", "langgraph", "newspaper", "openai", "pydantic",
-    "pydantic_settings", "pydub", "pytz", "rapidfuzz", "redis",
-    "requests", "sentence_transformers", "sqlalchemy", "tenacity",
-    "tldextract", "transformers",
+    "fastapi", "sqlalchemy", "pydantic", "celery",
+    "langgraph", "crewai", "anthropic", "transformers",
+    "feedparser", "aiohttp", "tldextract"
 ]
-sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
 
 [tool.mypy]
 python_version = "3.10"
 ignore_missing_imports = true
 warn_unused_ignores = true
-warn_return_any = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-asyncio_mode = "auto"
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]

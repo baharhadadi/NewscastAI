@@ -41,6 +41,8 @@ services:
     volumes:
       - audio:/mnt/audio
 
+  # worker requires crewai for NewsRetrievalCrew.
+  # Falls back to NewsAgent if crewai is not installed.
   worker:
     build:
       context: .

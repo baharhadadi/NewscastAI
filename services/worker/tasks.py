@@ -26,6 +26,17 @@ from .tts_client import tts
 
 logger = logging.getLogger(__name__)
 
+try:
+    from .retrieval_crew import fetch_with_crew
+    _USE_CREW = True
+    logger.info("NewsRetrievalCrew loaded — using CrewAI retrieval")
+except ImportError:
+    _USE_CREW = False
+    logger.warning(
+        "crewai not installed — falling back to NewsAgent. "
+        "Install with: pip install crewai"
+    )
+
 engine = create_engine(settings.database_url)
 SessionLocal = sessionmaker(bind=engine)
 
@@ -63,7 +74,11 @@ def _fetch_and_filter_articles(
         List of ``{"title": str, "text": str}`` dicts ready for
         ``summarize_many()``.  Empty list when no qualifying articles are found.
     """
-    raw = fetch_articles(topics, limit=max_n + 8)[:max_n]
+    if _USE_CREW:
+        result = fetch_with_crew(topics, limit=max_n + 8)
+        raw = result["items"][:max_n]
+    else:
+        raw = fetch_articles(topics, limit=max_n + 8)[:max_n]
     items = []
     for a in raw:
         title = a.get("title") or ""
