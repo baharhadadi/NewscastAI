@@ -1,0 +1,74 @@
+version: "3.9"
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports: [ "5432:5432" ]
+    volumes: [ "pgdata:/var/lib/postgresql/data" ]
+
+  redis:
+    image: redis:7
+    ports: [ "6379:6379" ]
+    
+  searxng:
+    image: searxng/searxng:latest
+    ports: ["8080:8080"]
+    environment:
+      - BASE_URL=http://localhost:8080/
+      - SEARXNG_SETTINGS_PATH=/etc/searxng/settings.yml
+    volumes:
+      - ./searxng:/etc/searxng
+
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports: ["9000:9000", "9001:9001"]
+    volumes: ["minio:/data"]
+    
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    env_file: .env
+    depends_on: [ postgres, redis, minio, mcp ]
+    ports: [ "8000:8000" ]
+    volumes:
+      - audio:/mnt/audio
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    env_file: .env
+    depends_on: [ postgres, redis, minio, mcp ]
+    volumes:
+      - audio:/mnt/audio
+    ports: [ "8001:8001" ]
+
+  mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+    env_file: .env
+    ports: [ "7000:7000" ]
+    volumes:
+      - audio:/mnt/audio
+
+  nginx:
+    image: nginx:alpine
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - audio:/var/www/audio:ro
+    depends_on: [ api ]
+    ports: [ "8080:80" ]
+
+volumes:
+  pgdata:
+  minio:
+  audio:

@@ -1,0 +1,70 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.egg-info/
+*.egg
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env/
+
+# Environment variables (contains secrets — never commit)
+.env
+.env.*
+!.env.example
+
+# Distribution / packaging
+dist/
+build/
+wheels/
+
+# Audio output (generated at runtime)
+*.mp3
+*.wav
+*.ogg
+*.aac
+/audio/
+latest
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite3
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+Thumbs.db
+
+# MyPy / type checking caches
+.mypy_cache/
+.dmypy.json
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Docker override files (keep docker-compose.yml, ignore overrides)
+docker-compose.override.yml
+
+# MinIO / S3 local data
+minio_data/
+
+# Model weight caches (large; download at runtime)
+.cache/huggingface/

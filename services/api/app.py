@@ -1,0 +1,175 @@
+"""
+services/api/app.py
+--------------------
+FastAPI application for the NewscastAI API tier.
+
+Exposes endpoints for user preference management, episode retrieval, and RSS
+feed generation.  Delegates episode generation to the Celery worker tier.
+"""
+
+import logging
+
+import requests
+from fastapi import Depends, FastAPI, HTTPException
+from sqlalchemy.orm import Session
+
+from .db import Base, engine, SessionLocal
+from .models import Episode, User
+from .rss import router as rss_router
+from .schemas import PrefsIn, PrefsOut
+
+logger = logging.getLogger(__name__)
+
+Base.metadata.create_all(bind=engine)
+app = FastAPI(title="Newscast AI API")
+app.include_router(rss_router)
+
+
+def get_db():
+    """Yield a database session and guarantee it is closed after the request.
+
+    Implements the FastAPI dependency-injection pattern for SQLAlchemy
+    sessions.  The ``try / finally`` block ensures the session is closed and
+    returned to the connection pool even when the route handler raises an
+    exception, preventing connection leaks under sustained load.
+
+    Yields:
+        An open ``sqlalchemy.orm.Session`` bound to ``SessionLocal``.
+    """
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+@app.get("/health")
+def health():
+    """Return a liveness probe response for the API service.
+
+    Intended for Docker health checks, load-balancer probes, and monitoring
+    systems.  Returns ``200 OK`` as long as the FastAPI process is running and
+    able to handle requests.  It does **not** check database connectivity or
+    downstream service availability — use a dedicated readiness probe for that.
+
+    Returns:
+        JSON ``{"ok": True}`` on success.
+    """
+    return {"ok": True}
+
+
+@app.post("/users", response_model=PrefsOut)
+def create_user(prefs: PrefsIn, db: Session = Depends(get_db)):
+    """Create a new user and immediately trigger the first episode generation.
+
+    This endpoint is not idempotent: calling it twice with the same preferences
+    creates two ``User`` rows (email uniqueness is enforced at the DB level only
+    when ``email`` is supplied).  The worker's ``/kick`` endpoint is called
+    fire-and-forget after the user is committed; if the worker is unavailable
+    the ``User`` row is still saved and the first episode will be generated at
+    ``schedule_time``.
+
+    Args:
+        prefs: User preference payload validated by ``PrefsIn``.  See
+            ``PrefsIn`` for field descriptions and valid values.
+        db: Injected database session from ``get_db()``.
+
+    Returns:
+        ``PrefsOut`` containing all submitted preferences plus the
+        server-assigned ``id`` needed to poll for episodes and subscribe to
+        the RSS feed.
+    """
+    u = User(
+        schedule_time=prefs.schedule_time,
+        topics=prefs.topics,
+        max_duration_min=prefs.max_duration_min,
+        voice=prefs.voice,
+    )
+    db.add(u)
+    db.commit()
+    db.refresh(u)
+    try:
+        requests.post("http://worker:8001/kick", json={"user_id": u.id}, timeout=3)
+    except Exception:
+        pass
+    return PrefsOut(id=u.id, **prefs.model_dump())
+
+
+@app.get("/episodes/{user_id}/latest")
+def latest_ep(user_id: int, db: Session = Depends(get_db)):
+    """Return the playback URL for the most recent ready episode.
+
+    Intended as a lightweight polling endpoint: clients call this repeatedly
+    after a ``POST /users`` or a manual trigger until ``ready`` becomes
+    ``True``.  The audio URL points to the nginx reverse proxy, which serves
+    the MP3 from the shared ``audio`` Docker volume.
+
+    Args:
+        user_id: Primary key of the target ``User``.
+        db: Injected database session.
+
+    Returns:
+        ``{"ready": False}`` when no completed episode exists yet (user was
+        just created, or episode generation is still in progress).
+
+        ``{"ready": True, "audio_url": "http://..."}`` once an episode is
+        available, where ``audio_url`` is the fully-qualified nginx URL.
+    """
+    ep = (
+        db.query(Episode)
+        .filter_by(user_id=user_id, ready=True)
+        .order_by(Episode.date.desc())
+        .first()
+    )
+    logger.debug("Episode information: %s", ep)
+    if not ep:
+        return {"ready": False}
+    return {"ready": True, "audio_url": f"http://localhost:8080{ep.audio_path}"}
+
+
+@app.get("/episodes/{user_id}/latest_details")
+def latest_details(user_id: int, db: Session = Depends(get_db)):
+    """Return the full episode detail record including transcript manifest.
+
+    Exposes the ``manifest`` column from the ``Episode`` row, which contains
+    the structured output of the Hostify graph.  When present, the manifest is
+    a dict with two keys:
+
+    - ``script_path`` — logical path to a plain-text transcript file (served
+      by nginx at the same ``/audio/`` prefix as the MP3).
+    - ``stories`` — list of dicts, one per article, each containing ``title``,
+      ``summary``, and ``source`` keys for display in a companion UI.
+
+    For episodes generated by the simpler BART-only path (no Hostify graph),
+    the manifest is a plain list of script strings and both ``script_url`` and
+    ``stories`` will be ``None``.
+
+    Args:
+        user_id: Primary key of the target ``User``.
+        db: Injected database session.
+
+    Returns:
+        Full episode detail dict on success.
+
+    Raises:
+        HTTPException: 404 if no completed episode exists for this user.
+    """
+    ep = (
+        db.query(Episode)
+        .filter_by(user_id=user_id, ready=True)
+        .order_by(Episode.date.desc())
+        .first()
+    )
+    if not ep:
+        raise HTTPException(status_code=404, detail="No episode yet")
+    script_url = None
+    if ep.manifest and isinstance(ep.manifest, dict):
+        script_url = ep.manifest.get("script_path")
+        if script_url:
+            script_url = f"http://localhost:8080{script_url}"
+    return {
+        "ready": True,
+        "audio_url": f"http://localhost:8080{ep.audio_path}",
+        "script_url": script_url,
+        "stories": ep.manifest.get("stories") if isinstance(ep.manifest, dict) else None,
+    }

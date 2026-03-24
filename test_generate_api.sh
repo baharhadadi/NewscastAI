@@ -1,0 +1,19 @@
+#!/bin/sh
+#curl -sS -X POST "http://localhost:8000/users" \
+#	  -H "accept: application/json" \
+#	    -H "Content-Type: application/json" \
+#	      --data '{ "schedule_time":"string", "topics":["Ottawa","Senators","Hockey"], "max_duration_min":7, "voice":"en_US" }'
+#USER_ID=$(
+#  curl -sS -X POST "http://localhost:8000/users" \
+#    -H "accept: application/json" \
+#    -H "Content-Type: application/json" \
+#  | jq -r '.id'
+#)
+
+#echo "New user id: $USER_ID"
+DAT='{"user_id": $1}'
+echo $DAT
+# or per-user (adjust if your API name differs)
+curl -sS -X POST http://localhost:8000/generate_episode \
+  -H "Content-Type: application/json" \
+  --data "$DAT"

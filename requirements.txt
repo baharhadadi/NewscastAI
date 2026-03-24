@@ -1,0 +1,52 @@
+# Web framework & server
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+
+# Database
+SQLAlchemy==2.0.35
+psycopg2-binary==2.9.9
+
+# Validation & settings
+pydantic==2.9.2
+pydantic-settings==2.5.2  # BaseSettings with .env support; used in services/*/settings.py
+
+# News ingestion
+feedparser==6.0.11
+newspaper3k==0.2.8
+lxml_html_clean==0.1.1   # required by newspaper3k for HTML sanitisation
+aiohttp>=3.9.5
+python-dateutil>=2.9.0
+tldextract>=5.1.2         # extracts registered domain names for per-source caps
+rapidfuzz>=3.9.0          # fuzzy title matching for near-duplicate suppression in ingestion
+
+# HTTP
+requests==2.32.3
+
+# Task queue
+celery==5.4.0
+redis==5.0.8
+
+# Scheduling
+apscheduler==3.10.4
+
+# ML / NLP — HuggingFace stack
+transformers==4.44.2
+torch==2.4.0
+sentencepiece==0.2.0      # tokeniser required by BART, flan-t5, and Qwen2.5 models
+accelerate>=0.33.0        # required by transformers for device_map="auto" (multi-GPU / CPU offload)
+
+# sentence-transformers — used for embedding-based semantic deduplication
+# (currently referenced in MODEL_REGISTRY; activate when the TODO in ingestion.py is implemented)
+sentence-transformers>=3.1.0
+
+# LLM orchestration
+openai>=1.40.0            # OpenAI SDK — also used against local vLLM endpoints
+langgraph>=0.2.0          # directed graph runtime for the hostify episode pipeline
+
+# Audio
+gTTS==2.5.3
+pydub==0.25.1
+
+# Utilities
+python-dotenv==1.0.1
+pytz==2024.1
