@@ -11,24 +11,7 @@ yourself.  No cloud AI APIs required; a single consumer GPU is enough.
 
 ## Architecture
 
-```
-[User] → API (FastAPI :8000)
-           │
-           │ POST /users/{id}/kick  (or APScheduler at schedule_time)
-           ▼
-       Worker (Celery :8001)
-         ├─ ingestion.py   — RSS fetch, SearxNG search, facet scoring
-         ├─ agent_search.py — agentic single-article path (breaking news)
-         ├─ tasks.py        — orchestration: ingest → summarise → TTS → store
-         └─ HTTP → MCP (:7000)
-                    ├─ /hostify      — LangGraph script pipeline (plan→draft→validate→compress)
-                    ├─ /summarize_batch — BART summarisation
-                    └─ /tts             — gTTS / Kokoro synthesis
-                                ↓
-                         audio/*.mp3  (nginx-served volume)
-                                ↓
-                       nginx :8080  ← RSS feed + audio delivery
-```
+![Architecture](docs/workflow.png)
 
 **Services:**
 
